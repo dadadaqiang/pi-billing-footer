@@ -39,7 +39,7 @@
 ### One‑liner
 
 ```bash
-curl -sSfL https://raw.githubusercontent.com/<YOUR_GITHUB_USER>/pi-billing-footer/main/install.sh | sh
+curl -sSfL https://raw.githubusercontent.com/dadadaqiang/pi-billing-footer/main/install.sh | sh
 ```
 
 ### Manual
