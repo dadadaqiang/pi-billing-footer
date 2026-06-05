@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Personal configs (keep your own copies)
+models.json
+settings.json
+auth.json
+balance-providers.json

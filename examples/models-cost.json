@@ -1,0 +1,32 @@
+{
+  "providers": {
+    "deepseek": {
+      "modelOverrides": {
+        "deepseek-chat": {
+          "name": "DeepSeek Chat",
+          "cost": { "input": 0.00000027, "output": 0.0000011, "cacheRead": 0.00000007, "cacheWrite": 0.00000027 }
+        },
+        "deepseek-reasoner": {
+          "name": "DeepSeek Reasoner",
+          "cost": { "input": 0.00000055, "output": 0.00000219, "cacheRead": 0.00000014, "cacheWrite": 0.00000055 }
+        }
+      }
+    },
+    "openai": {
+      "modelOverrides": {
+        "gpt-4o": {
+          "name": "GPT-4o",
+          "cost": { "input": 0.0000025, "output": 0.00001, "cacheRead": 0.00000125, "cacheWrite": 0.0000025 }
+        }
+      }
+    },
+    "openrouter": {
+      "modelOverrides": {
+        "openai/gpt-oss-120b:free": {
+          "name": "GPT-OSS 120B (Free)",
+          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
+        }
+      }
+    }
+  }
+}
