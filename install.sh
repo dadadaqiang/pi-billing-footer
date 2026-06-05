@@ -4,7 +4,7 @@ set -euo pipefail
 # ── pi-billing-footer 安装脚本 ─────────────────────────────────────
 # 用法: curl -sSfL https://raw.githubusercontent.com/<USER>/pi-billing-footer/main/install.sh | sh
 
-REPO_RAW="https://raw.githubusercontent.com/<YOUR_GITHUB_USERNAME>/pi-billing-footer/main"
+REPO_RAW="https://raw.githubusercontent.com/dadadaqiang/pi-billing-footer/main"
 PI_EXT_DIR="$HOME/.pi/agent/extensions"
 PI_SKILL_DIR="$HOME/.pi/agent/skills/pi-billing-footer"
 PI_REF_DIR="$PI_SKILL_DIR/references"
