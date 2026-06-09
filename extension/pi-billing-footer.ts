@@ -208,7 +208,8 @@ interface AuthJson {
   [provider: string]: { type: string; key: string };
 }
 
-function getApiKeyFromAuth(providerName: string): string {
+function getLegacyApiKeyFromAuth(providerName: string): string {
+  // 后备方案：直接从 auth.json 读取并尝试解析 $VAR_NAME / ${VAR_NAME}
   try {
     const authPath = join(homedir(), ".pi", "agent", "auth.json");
     if (!existsSync(authPath)) return "";
@@ -216,13 +217,36 @@ function getApiKeyFromAuth(providerName: string): string {
     const auth = JSON.parse(raw) as AuthJson;
     for (const [key, config] of Object.entries(auth)) {
       if (key.toLowerCase().includes(providerName.toLowerCase()) && config.type === "api_key" && config.key) {
-        return config.key;
+        const val = config.key.trim();
+        // 尝试解析 $VAR_NAME 或 ${VAR_NAME}
+        if (val.startsWith("$")) {
+          const envName = val.replace(/^\$\{?/, "").replace(/\}?$/, "");
+          return process.env[envName] || "";
+        }
+        return val;
       }
     }
     return "";
   } catch {
     return "";
   }
+}
+
+/** 使用 Pi 内置的 API key 解析机制获取 key */
+async function getApiKeyFromProvider(ctx: ExtensionContext, providerName: string): Promise<string | undefined> {
+  // 优先使用 modelRegistry.getApiKeyForProvider()——它通过 AuthStorage.getApiKey() 调用
+  // resolveConfigValue()，完整支持 $VAR、${VAR}、!command、$$ 转义等
+  try {
+    if (ctx.modelRegistry?.getApiKeyForProvider) {
+      const key = await ctx.modelRegistry.getApiKeyForProvider(providerName);
+      if (key) return key;
+    }
+  } catch {
+    // modelRegistry 不可用，降级
+  }
+  // 降级：直接读 auth.json
+  const fallback = getLegacyApiKeyFromAuth(providerName);
+  return fallback || undefined;
 }
 
 // ── JSON 配置加载: ~/.pi/agent/balance-providers.json ────────────────
@@ -352,6 +376,17 @@ export default function (pi: ExtensionAPI) {
 	// 缓存检测（render 时自动更新）
 	let supportsCache = false;
 
+	// 保存 interval ID 以便清理
+	let balanceIntervalId: NodeJS.Timeout | null = null;
+
+	// 清理余额更新 interval
+	function clearBalanceInterval() {
+		if (balanceIntervalId) {
+			clearInterval(balanceIntervalId);
+			balanceIntervalId = null;
+		}
+	}
+
 	pi.on("session_start", async (_event, ctx) => {
 		// 清除旧版 deepseek-balance 残留的 "money" 状态（防止重复显示）
 		ctx.ui.setStatus("money", undefined);
@@ -363,10 +398,28 @@ export default function (pi: ExtensionAPI) {
 		// 初始化余额（根据当前 provider 自动查询）
 		await updateBalance(ctx);
 
+		// 清理旧的 interval（防止会话切换后残留）
+		clearBalanceInterval();
+
 		// 每 60 秒自动刷新余额
-		setInterval(() => {
-			updateBalance(ctx);
+		// 如果 ctx 已 stale（session 被 newSession/fork/switchSession 替换），
+		// updateBalance 会抛出异常，此时应清除 interval
+		balanceIntervalId = setInterval(async () => {
+			try {
+				await updateBalance(ctx);
+			} catch (e: any) {
+				if (e?.message?.includes("stale") || e?.message?.includes("session replacement")) {
+					clearBalanceInterval();
+				} else {
+					throw e;
+				}
+			}
 		}, 60000);
+	});
+
+	// 会话结束时清理 interval
+	pi.on("session_end", () => {
+		clearBalanceInterval();
 	});
 
 	// 模型切换时立即刷新余额
@@ -615,7 +668,7 @@ export default function (pi: ExtensionAPI) {
 		if (balanceFetching) return;
 		balanceFetching = true;
 
-		const apiKey = getApiKeyFromAuth(providerName);
+		const apiKey = await getApiKeyFromProvider(ctx, providerName);
 		if (!apiKey) {
 			ctx.ui.setStatus("balance", ctx.ui.theme.fg("dim", "Balance:—"));
 			balanceFetching = false;
